@@ -12,6 +12,6 @@ Now you can control the robot with cursors and A,S,W,D
 
 Or send commands:
 
-curl -X POST http://localhost:5000/mover -H "Content-Type: application/json" -d "{\"hombro_angle\": 45}"
-curl -X POST http://localhost:5000/mover -H "Content-Type: application/json" -d "{\"hombro_angle\": 30, \"codo_updown\": 15}"
-curl http://localhost:5000/estado
+curl -X POST http://localhost:8080/mover -H "Content-Type: application/json" -d "{\"hombro_angle\": 45}"
+curl -X POST http://localhost:8080/mover -H "Content-Type: application/json" -d "{\"hombro_angle\": 30, \"codo_updown\": 15}"
+curl http://localhost:8080/estado

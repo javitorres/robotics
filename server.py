@@ -1,53 +1,49 @@
 from flask import Flask, request, jsonify
 import threading
-import robot  # << Importamos tu robot.py
+import robot
 
 app = Flask(__name__)
 
-# API para mover articulaciones
+# Creamos el estado global
+estado = robot.EstadoRobot()
+
 @app.route('/mover', methods=['POST'])
 def mover():
     data = request.get_json()
+    print("Recibido en mover():", data)
 
-    # Controlar hombro
     if 'hombro_angle' in data:
-        robot.hombro_angle = data['hombro_angle']
+        estado.hombro_angle = data['hombro_angle']
     if 'hombro_updown' in data:
-        robot.hombro_updown = data['hombro_updown']
-
-    # Controlar codo
+        estado.hombro_updown = data['hombro_updown']
     if 'codo_angle' in data:
-        robot.codo_angle = data['codo_angle']
+        estado.codo_angle = data['codo_angle']
     if 'codo_updown' in data:
-        robot.codo_updown = data['codo_updown']
-
-    # Controlar muñeca
-    if 'muñeca_angle' in data:
-        robot.muñeca_angle = data['muñeca_angle']
-    if 'muñeca_updown' in data:
-        robot.muñeca_updown = data['muñeca_updown']
+        estado.codo_updown = data['codo_updown']
+    if 'muneca_angle' in data:
+        estado.muneca_angle = data['muneca_angle']
+    if 'muneca_updown' in data:
+        estado.muneca_updown = data['muneca_updown']
 
     return jsonify({"status": "ok"})
 
-# API para leer estado actual
 @app.route('/estado', methods=['GET'])
-def estado():
+def get_estado():
     return jsonify({
-        "hombro_angle": robot.hombro_angle,
-        "hombro_updown": robot.hombro_updown,
-        "codo_angle": robot.codo_angle,
-        "codo_updown": robot.codo_updown,
-        "muñeca_angle": robot.muñeca_angle,
-        "muñeca_updown": robot.muñeca_updown
+        "hombro_angle": estado.hombro_angle,
+        "hombro_updown": estado.hombro_updown,
+        "codo_angle": estado.codo_angle,
+        "codo_updown": estado.codo_updown,
+        "muneca_angle": estado.muneca_angle,
+        "muneca_updown": estado.muneca_updown
     })
 
-def lanzar_simulador():
-    robot.main()
+def lanzar_api():
+    app.run(port=8080, threaded=True)
 
 if __name__ == "__main__":
-    # Lanzar simulador en un hilo
-    simulador_thread = threading.Thread(target=lanzar_simulador)
-    simulador_thread.start()
+    api_thread = threading.Thread(target=lanzar_api)
+    api_thread.daemon = True
+    api_thread.start()
 
-    # Lanzar servidor API
-    app.run(port=5000)
+    robot.main(estado)
