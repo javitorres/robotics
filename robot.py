@@ -3,6 +3,11 @@ from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
 import math
+import trimesh
+
+scene_model = None  # El modelo trimesh
+vertices = []
+faces = []
 
 # Inicialización de las articulaciones
 hombro_angle = 0
@@ -12,7 +17,24 @@ codo_updown = 0
 muñeca_angle = 0
 muñeca_updown = 0
 
-# Funciones para dibujar partes del brazo
+def cargar_modelo_gltf(ruta):
+    global scene_model, vertices, faces
+    scene_model = trimesh.load(ruta)
+
+    if scene_model.is_empty:
+        print("Error: El modelo está vacío.")
+        return
+
+    vertices = scene_model.vertices
+    faces = scene_model.faces
+
+def draw_model():
+    glBegin(GL_TRIANGLES)
+    for face in faces:
+        for idx in face:
+            glVertex3fv(vertices[idx])
+    glEnd()
+
 def draw_cylinder(length=1.0, radius=0.1, slices=16):
     quadric = gluNewQuadric()
     gluCylinder(quadric, radius, radius, length, slices, 1)
@@ -28,13 +50,13 @@ def brazo_robotico():
 
     glPushMatrix()
 
-    # Base fija
+    # Base
     glColor3f(0.5, 0.5, 0.5)
     draw_sphere(0.2)
 
-    # Primer brazo (hombro)
-    glRotatef(hombro_angle, 0, 1, 0)  # Giro izquierda/derecha
-    glRotatef(hombro_updown, 1, 0, 0)  # Movimiento arriba/abajo
+    # Hombro
+    glRotatef(hombro_angle, 0, 1, 0)
+    glRotatef(hombro_updown, 1, 0, 0)
     glColor3f(0.2, 0.2, 1)
     draw_cylinder(2)
 
@@ -43,9 +65,8 @@ def brazo_robotico():
     glColor3f(1, 0, 0)
     draw_sphere(0.2)
 
-    # Segundo brazo (antebrazo)
-    glRotatef(codo_angle, 0, 1, 0)  # Giro izquierda/derecha en codo
-    glRotatef(codo_updown, 1, 0, 0)  # Movimiento arriba/abajo en codo
+    glRotatef(codo_angle, 0, 1, 0)
+    glRotatef(codo_updown, 1, 0, 0)
     glColor3f(0.2, 1, 0.2)
     draw_cylinder(1.5)
 
@@ -54,7 +75,6 @@ def brazo_robotico():
     glColor3f(1, 1, 0)
     draw_sphere(0.15)
 
-    # Movimiento de muñeca
     glRotatef(muñeca_angle, 0, 1, 0)
     glRotatef(muñeca_updown, 1, 0, 0)
     glColor3f(1, 0.5, 0)
@@ -72,6 +92,10 @@ def main():
     glTranslatef(0.0, 0.0, -10)
     glRotatef(20, 1, 0, 0)
 
+    ruta = input("Introduce la ruta del modelo glTF (.gltf o .glb) o deja vacío para usar modelo básico: ")
+    if ruta.strip():
+        cargar_modelo_gltf(ruta.strip())
+
     clock = pygame.time.Clock()
 
     while True:
@@ -84,7 +108,6 @@ def main():
 
         keys = pygame.key.get_pressed()
 
-        # Hombro control
         if keys[pygame.K_LEFT]:
             hombro_angle += 2
         if keys[pygame.K_RIGHT]:
@@ -94,7 +117,6 @@ def main():
         if keys[pygame.K_s]:
             hombro_updown -= 2
 
-        # Codo control
         if keys[pygame.K_a]:
             codo_angle += 2
         if keys[pygame.K_d]:
@@ -104,7 +126,6 @@ def main():
         if keys[pygame.K_e]:
             codo_updown -= 2
 
-        # Muñeca control
         if keys[pygame.K_z]:
             muñeca_angle += 2
         if keys[pygame.K_c]:
@@ -115,7 +136,28 @@ def main():
             muñeca_updown -= 2
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
-        brazo_robotico()
+
+        glPushMatrix()
+
+        if scene_model:
+            # Aplicamos transformaciones
+            glRotatef(hombro_angle, 0, 1, 0)
+            glRotatef(hombro_updown, 1, 0, 0)
+            glTranslatef(0, 0, 2)
+
+            glRotatef(codo_angle, 0, 1, 0)
+            glRotatef(codo_updown, 1, 0, 0)
+            glTranslatef(0, 0, 1.5)
+
+            glRotatef(muñeca_angle, 0, 1, 0)
+            glRotatef(muñeca_updown, 1, 0, 0)
+
+            draw_model()
+        else:
+            brazo_robotico()
+
+        glPopMatrix()
+
         pygame.display.flip()
 
 if __name__ == "__main__":

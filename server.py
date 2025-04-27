@@ -1,6 +1,6 @@
 from flask import Flask, request, jsonify
 import threading
-import robot  # << Importamos tu robot.py
+import robot  # Importamos tu robot.py
 
 app = Flask(__name__)
 
@@ -9,19 +9,14 @@ app = Flask(__name__)
 def mover():
     data = request.get_json()
 
-    # Controlar hombro
     if 'hombro_angle' in data:
         robot.hombro_angle = data['hombro_angle']
     if 'hombro_updown' in data:
         robot.hombro_updown = data['hombro_updown']
-
-    # Controlar codo
     if 'codo_angle' in data:
         robot.codo_angle = data['codo_angle']
     if 'codo_updown' in data:
         robot.codo_updown = data['codo_updown']
-
-    # Controlar muñeca
     if 'muñeca_angle' in data:
         robot.muñeca_angle = data['muñeca_angle']
     if 'muñeca_updown' in data:
@@ -29,7 +24,6 @@ def mover():
 
     return jsonify({"status": "ok"})
 
-# API para leer estado actual
 @app.route('/estado', methods=['GET'])
 def estado():
     return jsonify({
@@ -41,13 +35,14 @@ def estado():
         "muñeca_updown": robot.muñeca_updown
     })
 
-def lanzar_simulador():
-    robot.main()
+def lanzar_api():
+    app.run(port=5000, threaded=True)
 
 if __name__ == "__main__":
-    # Lanzar simulador en un hilo
-    simulador_thread = threading.Thread(target=lanzar_simulador)
-    simulador_thread.start()
+    # Lanzar servidor API en un hilo
+    api_thread = threading.Thread(target=lanzar_api)
+    api_thread.daemon = True  # Hilo de servidor como demonio
+    api_thread.start()
 
-    # Lanzar servidor API
-    app.run(port=5000)
+    # Lanzar simulador en el hilo principal
+    robot.main()
