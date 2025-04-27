@@ -2,20 +2,20 @@ import pygame
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
-import math
 import trimesh
 
-scene_model = None  # El modelo trimesh
+scene_model = None
 vertices = []
 faces = []
 
-# Inicialización de las articulaciones
-hombro_angle = 0
-hombro_updown = 0
-codo_angle = 0
-codo_updown = 0
-muñeca_angle = 0
-muñeca_updown = 0
+class EstadoRobot:
+    def __init__(self):
+        self.hombro_angle = 0
+        self.hombro_updown = 0
+        self.codo_angle = 0
+        self.codo_updown = 0
+        self.muneca_angle = 0
+        self.muneca_updown = 0
 
 def cargar_modelo_gltf(ruta):
     global scene_model, vertices, faces
@@ -35,19 +35,7 @@ def draw_model():
             glVertex3fv(vertices[idx])
     glEnd()
 
-def draw_cylinder(length=1.0, radius=0.1, slices=16):
-    quadric = gluNewQuadric()
-    gluCylinder(quadric, radius, radius, length, slices, 1)
-    gluDeleteQuadric(quadric)
-
-def draw_sphere(radius=0.15, slices=16, stacks=16):
-    quadric = gluNewQuadric()
-    gluSphere(quadric, radius, slices, stacks)
-    gluDeleteQuadric(quadric)
-
-def brazo_robotico():
-    global hombro_angle, hombro_updown, codo_angle, codo_updown, muñeca_angle, muñeca_updown
-
+def brazo_robotico(estado):
     glPushMatrix()
 
     # Base
@@ -55,8 +43,8 @@ def brazo_robotico():
     draw_sphere(0.2)
 
     # Hombro
-    glRotatef(hombro_angle, 0, 1, 0)
-    glRotatef(hombro_updown, 1, 0, 0)
+    glRotatef(estado.hombro_angle, 0, 1, 0)
+    glRotatef(estado.hombro_updown, 1, 0, 0)
     glColor3f(0.2, 0.2, 1)
     draw_cylinder(2)
 
@@ -65,8 +53,8 @@ def brazo_robotico():
     glColor3f(1, 0, 0)
     draw_sphere(0.2)
 
-    glRotatef(codo_angle, 0, 1, 0)
-    glRotatef(codo_updown, 1, 0, 0)
+    glRotatef(estado.codo_angle, 0, 1, 0)
+    glRotatef(estado.codo_updown, 1, 0, 0)
     glColor3f(0.2, 1, 0.2)
     draw_cylinder(1.5)
 
@@ -75,16 +63,24 @@ def brazo_robotico():
     glColor3f(1, 1, 0)
     draw_sphere(0.15)
 
-    glRotatef(muñeca_angle, 0, 1, 0)
-    glRotatef(muñeca_updown, 1, 0, 0)
+    glRotatef(estado.muneca_angle, 0, 1, 0)
+    glRotatef(estado.muneca_updown, 1, 0, 0)
     glColor3f(1, 0.5, 0)
     draw_cylinder(0.5)
 
     glPopMatrix()
 
-def main():
-    global hombro_angle, hombro_updown, codo_angle, codo_updown, muñeca_angle, muñeca_updown
+def draw_sphere(radius=0.15, slices=16, stacks=16):
+    quadric = gluNewQuadric()
+    gluSphere(quadric, radius, slices, stacks)
+    gluDeleteQuadric(quadric)
 
+def draw_cylinder(length=1.0, radius=0.1, slices=16):
+    quadric = gluNewQuadric()
+    gluCylinder(quadric, radius, radius, length, slices, 1)
+    gluDeleteQuadric(quadric)
+
+def main(estado):
     pygame.init()
     display = (800, 600)
     pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
@@ -109,31 +105,31 @@ def main():
         keys = pygame.key.get_pressed()
 
         if keys[pygame.K_LEFT]:
-            hombro_angle += 2
+            estado.hombro_angle += 2
         if keys[pygame.K_RIGHT]:
-            hombro_angle -= 2
+            estado.hombro_angle -= 2
         if keys[pygame.K_w]:
-            hombro_updown += 2
+            estado.hombro_updown += 2
         if keys[pygame.K_s]:
-            hombro_updown -= 2
+            estado.hombro_updown -= 2
 
         if keys[pygame.K_a]:
-            codo_angle += 2
+            estado.codo_angle += 2
         if keys[pygame.K_d]:
-            codo_angle -= 2
+            estado.codo_angle -= 2
         if keys[pygame.K_q]:
-            codo_updown += 2
+            estado.codo_updown += 2
         if keys[pygame.K_e]:
-            codo_updown -= 2
+            estado.codo_updown -= 2
 
         if keys[pygame.K_z]:
-            muñeca_angle += 2
+            estado.muneca_angle += 2
         if keys[pygame.K_c]:
-            muñeca_angle -= 2
+            estado.muneca_angle -= 2
         if keys[pygame.K_r]:
-            muñeca_updown += 2
+            estado.muneca_updown += 2
         if keys[pygame.K_f]:
-            muñeca_updown -= 2
+            estado.muneca_updown -= 2
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
@@ -141,24 +137,22 @@ def main():
 
         if scene_model:
             # Aplicamos transformaciones
-            glRotatef(hombro_angle, 0, 1, 0)
-            glRotatef(hombro_updown, 1, 0, 0)
+            glRotatef(estado.hombro_angle, 0, 1, 0)
+            glRotatef(estado.hombro_updown, 1, 0, 0)
             glTranslatef(0, 0, 2)
 
-            glRotatef(codo_angle, 0, 1, 0)
-            glRotatef(codo_updown, 1, 0, 0)
+            glRotatef(estado.codo_angle, 0, 1, 0)
+            glRotatef(estado.codo_updown, 1, 0, 0)
             glTranslatef(0, 0, 1.5)
 
-            glRotatef(muñeca_angle, 0, 1, 0)
-            glRotatef(muñeca_updown, 1, 0, 0)
+            glRotatef(estado.muneca_angle, 0, 1, 0)
+            glRotatef(estado.muneca_updown, 1, 0, 0)
 
             draw_model()
         else:
-            brazo_robotico()
+            brazo_robotico(estado)
 
         glPopMatrix()
 
         pygame.display.flip()
 
-if __name__ == "__main__":
-    main()
