@@ -21,12 +21,18 @@ def cargar_modelo_gltf(ruta):
     global scene_model, vertices, faces
     scene_model = trimesh.load(ruta)
 
-    if scene_model.is_empty:
-        print("Error: El modelo está vacío.")
-        return
+    if isinstance(scene_model, trimesh.Scene):
+        # Es una escena, extraemos las geometrías
+        combined = trimesh.util.concatenate(scene_model.dump())  # Juntamos todas las piezas
+        vertices = combined.vertices
+        faces = combined.faces
+    elif isinstance(scene_model, trimesh.Trimesh):
+        # Es una sola malla
+        vertices = scene_model.vertices
+        faces = scene_model.faces
+    else:
+        raise Exception("Formato de modelo no reconocido")
 
-    vertices = scene_model.vertices
-    faces = scene_model.faces
 
 def draw_model():
     glBegin(GL_TRIANGLES)
@@ -88,9 +94,13 @@ def main(estado):
     glTranslatef(0.0, 0.0, -10)
     glRotatef(20, 1, 0, 0)
 
-    ruta = input("Introduce la ruta del modelo glTF (.gltf o .glb) o deja vacío para usar modelo básico: ")
-    if ruta.strip():
-        cargar_modelo_gltf(ruta.strip())
+    modelo = input("1 robot, cualquier otra cosa modelo basico: ")
+    if modelo.strip()=="1":
+        print("Modelo 3D cargado")
+        cargar_modelo_gltf("3dmodels/robotic_arm.glb")
+    else:
+        print("Modelo basico '" + modelo + "'")
+
 
     clock = pygame.time.Clock()
 
@@ -130,6 +140,13 @@ def main(estado):
             estado.muneca_updown += 2
         if keys[pygame.K_f]:
             estado.muneca_updown -= 2
+
+        #Key instrctions:
+        # Hombro: Izquierda/Derecha (K_LEFT/K_RIGHT), Arriba/Abajo (K_w/K_s)
+        # Codo: Izquierda/Derecha (K_a/K_d), Arriba/Abajo (K_q/K_e)
+        # Muñeca: Izquierda/Derecha (K_z/K_c), Arriba/Abajo (K_r/K_f)
+        # Resetear ángulos (K_r)
+
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
 
