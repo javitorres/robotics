@@ -1,12 +1,14 @@
+####### robot.py
+
 import pygame
 from pygame.locals import *
 from OpenGL.GL import *
 from OpenGL.GLU import *
-import trimesh
+import math
 
-scene_model = None
-vertices = []
-faces = []
+def distancia(p1, p2):
+    return math.sqrt(sum((a - b) ** 2 for a, b in zip(p1, p2)))
+
 
 class EstadoRobot:
     def __init__(self):
@@ -16,32 +18,35 @@ class EstadoRobot:
         self.codo_updown = 0
         self.muneca_angle = 0
         self.muneca_updown = 0
+        self.pinza_opening = 0.2
 
-def cargar_modelo_gltf(ruta):
-    global scene_model, vertices, faces
-    scene_model = trimesh.load(ruta)
+        self.pelota_pos = [1.5, -0.8, 2.5]  # posición XYZ de la pelota
+        self.pelota_agarrada = False  # indica si la pelota está agarrada
 
-    if isinstance(scene_model, trimesh.Scene):
-        # Es una escena, extraemos las geometrías
-        combined = trimesh.util.concatenate(scene_model.dump())  # Juntamos todas las piezas
-        vertices = combined.vertices
-        faces = combined.faces
-    elif isinstance(scene_model, trimesh.Trimesh):
-        # Es una sola malla
-        vertices = scene_model.vertices
-        faces = scene_model.faces
-    else:
-        raise Exception("Formato de modelo no reconocido")
-
-
-def draw_model():
-    glBegin(GL_TRIANGLES)
-    for face in faces:
-        for idx in face:
-            glVertex3fv(vertices[idx])
-    glEnd()
 
 def brazo_robotico(estado):
+    # Suelo
+    glPushMatrix()
+    glColor3f(0.3, 0.3, 0.3)
+    glTranslatef(0, -1, 0)
+    glScalef(5, 0.01, 5)  # plano ancho y delgado
+    draw_cube()
+    glPopMatrix()
+
+    # Pelota
+    glPushMatrix()
+    glColor3f(1, 0.4, 0.1)
+
+    if estado.pelota_agarrada:
+        # Coloca la pelota al final de la pinza
+        glTranslatef(0, 0, 0.5)  # final de muñeca
+        glTranslatef(0, 0, 0.2)  # delante de los dedos
+    else:
+        glTranslatef(*estado.pelota_pos)
+
+    draw_sphere(0.2)
+    glPopMatrix()
+
     glPushMatrix()
 
     # Base
@@ -74,6 +79,24 @@ def brazo_robotico(estado):
     glColor3f(1, 0.5, 0)
     draw_cylinder(0.5)
 
+    # Pinza
+    glTranslatef(0, 0, 0.5)  # Avanzamos al final de la muñeca
+    glColor3f(1, 1, 1)
+
+    # Dedo izquierdo
+    glPushMatrix()
+    glTranslatef(-estado.pinza_opening / 2, 0, 0)
+    glScalef(0.05, 0.05, 0.2)
+    draw_cube()
+    glPopMatrix()
+
+    # Dedo derecho
+    glPushMatrix()
+    glTranslatef(estado.pinza_opening / 2, 0, 0)
+    glScalef(0.05, 0.05, 0.2)
+    draw_cube()
+    glPopMatrix()
+
     glPopMatrix()
 
 def draw_sphere(radius=0.15, slices=16, stacks=16):
@@ -86,21 +109,47 @@ def draw_cylinder(length=1.0, radius=0.1, slices=16):
     gluCylinder(quadric, radius, radius, length, slices, 1)
     gluDeleteQuadric(quadric)
 
+def draw_cube():
+    vertices = (
+        (1, -1, -1),
+        (1, 1, -1),
+        (-1, 1, -1),
+        (-1, -1, -1),
+        (1, -1, 1),
+        (1, 1, 1),
+        (-1, -1, 1),
+        (-1, 1, 1)
+    )
+
+    edges = (
+        (0,1), (1,2), (2,3), (3,0),
+        (4,5), (5,6), (6,7), (7,4),
+        (0,4), (1,5), (2,6), (3,7)
+    )
+
+    glBegin(GL_LINES)
+    for edge in edges:
+        for vertex in edge:
+            glVertex3fv(vertices[vertex])
+    glEnd()
+
+
 def main(estado):
     pygame.init()
     display = (800, 600)
     pygame.display.set_mode(display, DOUBLEBUF | OPENGL)
+    glEnable(GL_LIGHTING)
+    glEnable(GL_LIGHT0)
+    glLightfv(GL_LIGHT0, GL_POSITION, (0, 10, 10, 1))
+    glLightfv(GL_LIGHT0, GL_AMBIENT, (0.3, 0.3, 0.3, 1.0))
+    glLightfv(GL_LIGHT0, GL_DIFFUSE, (0.7, 0.7, 0.7, 1.0))
+    glEnable(GL_COLOR_MATERIAL)
+    glColorMaterial(GL_FRONT_AND_BACK, GL_AMBIENT_AND_DIFFUSE)
+
+
     gluPerspective(45, (display[0] / display[1]), 0.1, 50.0)
     glTranslatef(0.0, 0.0, -10)
     glRotatef(20, 1, 0, 0)
-
-    modelo = input("1 robot, cualquier otra cosa modelo basico: ")
-    if modelo.strip()=="1":
-        print("Modelo 3D cargado")
-        cargar_modelo_gltf("3dmodels/robotic_arm.glb")
-    else:
-        print("Modelo basico '" + modelo + "'")
-
 
     clock = pygame.time.Clock()
 
@@ -118,9 +167,9 @@ def main(estado):
             estado.hombro_angle += 2
         if keys[pygame.K_RIGHT]:
             estado.hombro_angle -= 2
-        if keys[pygame.K_w]:
-            estado.hombro_updown += 2
         if keys[pygame.K_s]:
+            estado.hombro_updown += 2
+        if keys[pygame.K_w]:
             estado.hombro_updown -= 2
 
         if keys[pygame.K_a]:
@@ -132,7 +181,7 @@ def main(estado):
         if keys[pygame.K_e]:
             estado.codo_updown -= 2
 
-        if keys[pygame.K_z]:
+        if keys[pygame.K_x]:
             estado.muneca_angle += 2
         if keys[pygame.K_c]:
             estado.muneca_angle -= 2
@@ -141,35 +190,60 @@ def main(estado):
         if keys[pygame.K_f]:
             estado.muneca_updown -= 2
 
+        if keys[pygame.K_t]:  # Abrir pinza
+            estado.pinza_opening = min(estado.pinza_opening + 0.01, 0.5)
+        if keys[pygame.K_g]:  # Cerrar pinza
+            estado.pinza_opening = max(estado.pinza_opening - 0.01, 0.0)
+
+        # If Z zoom in
+        if keys[pygame.K_z] and (keys[pygame.K_LSHIFT] or keys[pygame.K_RSHIFT]):
+            glTranslatef(0, 0, 0.1)
+        # if z zoom out
+        elif keys[pygame.K_z]:
+            glTranslatef(0, 0, -0.1)
+
+        # If cursors move camera
+        if keys[pygame.K_UP]:
+            glTranslatef(0, 0.1, 0)
+        if keys[pygame.K_DOWN]:
+            glTranslatef(0, -0.1, 0)
+        if keys[pygame.K_LEFT]:
+            glTranslatef(-0.1, 0, 0)
+        if keys[pygame.K_RIGHT]:
+            glTranslatef(0.1, 0, 0)
+
+        # If ESC is pressed, exit
+        if keys[pygame.K_ESCAPE]:
+            pygame.quit()
+            quit()
+
         #Key instrctions:
         # Hombro: Izquierda/Derecha (K_LEFT/K_RIGHT), Arriba/Abajo (K_w/K_s)
         # Codo: Izquierda/Derecha (K_a/K_d), Arriba/Abajo (K_q/K_e)
         # Muñeca: Izquierda/Derecha (K_z/K_c), Arriba/Abajo (K_r/K_f)
         # Resetear ángulos (K_r)
 
+        # Obtener posición de la punta del brazo en coordenadas aproximadas
+        # (esto es muy simplificado y no considera rotaciones reales)
+        pinza_pos_aprox = [0, 0, 0]
+        pinza_pos_aprox[0] = 0  # sin rotaciones reales por ahora
+        pinza_pos_aprox[1] = 0  # simplificado
+        pinza_pos_aprox[2] = 2 + 1.5 + 0.5 + 0.2  # longitudes acumuladas de segmentos
+
+        if not estado.pelota_agarrada and distancia(pinza_pos_aprox, estado.pelota_pos) < 0.4:
+            if keys[pygame.K_y]:  # presiona Y para agarrar
+                estado.pelota_agarrada = True
+
+        if estado.pelota_agarrada and keys[pygame.K_u]:  # U para soltar
+            estado.pelota_agarrada = False
+            # Al soltar, actualiza posición de pelota con pinza
+            estado.pelota_pos = list(pinza_pos_aprox)
 
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT)
+        glEnable(GL_DEPTH_TEST)
 
         glPushMatrix()
 
-        if scene_model:
-            # Aplicamos transformaciones
-            glRotatef(estado.hombro_angle, 0, 1, 0)
-            glRotatef(estado.hombro_updown, 1, 0, 0)
-            glTranslatef(0, 0, 2)
-
-            glRotatef(estado.codo_angle, 0, 1, 0)
-            glRotatef(estado.codo_updown, 1, 0, 0)
-            glTranslatef(0, 0, 1.5)
-
-            glRotatef(estado.muneca_angle, 0, 1, 0)
-            glRotatef(estado.muneca_updown, 1, 0, 0)
-
-            draw_model()
-        else:
-            brazo_robotico(estado)
-
+        brazo_robotico(estado)
         glPopMatrix()
-
         pygame.display.flip()
-

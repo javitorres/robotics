@@ -1,3 +1,5 @@
+### server.py
+
 from flask import Flask, request, jsonify
 import threading
 import robot
@@ -46,4 +48,5 @@ if __name__ == "__main__":
     api_thread.daemon = True
     api_thread.start()
 
+    print("Starting the robot simulation...")
     robot.main(estado)
